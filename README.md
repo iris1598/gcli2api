@@ -463,11 +463,19 @@ export MONGODB_URI="mongodb://localhost:27017/gcli2api?readPreference=secondaryP
 
 **并发与速率控制配置（可在控制面板"配置管理"中设置并热更新）**
 - `RATE_LIMIT_ENABLED`: 启用限流（默认：false）
-- `RATE_LIMIT_MAX_CONCURRENT`: 同一时刻最大并发请求数，0 表示不限（默认：10）
-- `RATE_LIMIT_REQUESTS_PER_WINDOW`: 时间窗口内最大请求数（默认：30）
+- `RATE_LIMIT_MAX_CONCURRENT`: 同一时刻最大并发请求数，0 表示不限（默认：5）
+- `RATE_LIMIT_REQUESTS_PER_WINDOW`: 时间窗口内最大请求数（默认：20）
 - `RATE_LIMIT_WINDOW_SECONDS`: 限流时间窗口，秒（默认：60）
 
 > 超过限制的请求会返回 HTTP 429。并发控制覆盖 /v1、/v1beta、/antigravity 的聊天 API 请求，流式响应会持续占用并发名额直到传输完成。
+
+**请求节流与抖动配置（单账号防封禁，可在控制面板设置并热更新）**
+- `REQUEST_THROTTLE_ENABLED`: 启用请求节流（默认：false）
+- `REQUEST_MIN_INTERVAL`: 相邻两次请求之间的最小间隔，秒（默认：2.0）
+- `REQUEST_JITTER`: 每次请求附加的随机抖动上限，秒，实际值在 [0, 上限] 内随机（默认：2.0）
+
+> 启用后在每次向上游发送聊天请求前等待"最小间隔 + 随机抖动"，并把并发的请求串行排队，把请求节奏抹平滑、降低单账号被识别为自动化突发并封禁的风险。单账号保守建议设置 最小间隔 2~5 秒 + 抖动 2~3 秒。
+> 与并发控制的关系：并发限制在请求入口计数（满了返回 429）、请求节流在发送给 Google 前排队等待（不拒绝）。两者可同时开启，节流负责抹平上游节奏、并发上限只作兜底保护；若节流间隔较大，建议把并发上限设大一些或设为 0（不限）。
 
 **网络和代理配置**
 - `PROXY`: HTTP/HTTPS 代理地址（格式：`http://host:port`）

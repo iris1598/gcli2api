@@ -23,6 +23,7 @@ from log import log
 
 from src.credential_manager import credential_manager
 from src.httpx_client import stream_post_async, post_async
+from src.request_pacer import request_pacer
 
 # 导入共同的基础功能
 from src.api.utils import (
@@ -215,6 +216,9 @@ async def stream_request(
         return True
 
     for attempt in range(max_retries + 1):
+        # 防封禁：请求节流 + 随机抖动（每次发送前调用）
+        await request_pacer.pace()
+
         success_recorded = False  # 标记是否已记录成功
         need_retry = False  # 标记是否需要重试
 
@@ -504,6 +508,9 @@ async def non_stream_request(
         return True
 
     for attempt in range(max_retries + 1):
+        # 防封禁：请求节流 + 随机抖动（每次发送前调用）
+        await request_pacer.pace()
+
         try:
             response = await post_async(
                 url=target_url,

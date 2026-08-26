@@ -70,6 +70,11 @@ async def get_config(token: str = Depends(verify_panel_token)):
         current_config["rate_limit_requests_per_window"] = await config.get_rate_limit_requests_per_window()
         current_config["rate_limit_window_seconds"] = await config.get_rate_limit_window_seconds()
 
+        # 请求节流与抖动配置（防封禁）
+        current_config["request_throttle_enabled"] = await config.get_request_throttle_enabled()
+        current_config["request_min_interval"] = await config.get_request_min_interval()
+        current_config["request_jitter"] = await config.get_request_jitter()
+
         # 服务器配置
         current_config["host"] = await config.get_server_host()
         current_config["port"] = await config.get_server_port()
@@ -226,6 +231,29 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
             except (ValueError, TypeError):
                 raise HTTPException(status_code=400, detail="限流时间窗口必须是有效整数")
 
+        # 验证请求节流与抖动配置（防封禁）
+        if "request_throttle_enabled" in new_config:
+            if not isinstance(new_config["request_throttle_enabled"], bool):
+                raise HTTPException(status_code=400, detail="请求节流开关必须是布尔值")
+
+        if "request_min_interval" in new_config:
+            try:
+                interval = float(new_config["request_min_interval"])
+                if interval < 0 or interval > 3600:
+                    raise HTTPException(status_code=400, detail="最小请求间隔必须在0-3600秒之间")
+                new_config["request_min_interval"] = interval
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="最小请求间隔必须是有效的数字")
+
+        if "request_jitter" in new_config:
+            try:
+                jitter = float(new_config["request_jitter"])
+                if jitter < 0 or jitter > 3600:
+                    raise HTTPException(status_code=400, detail="抖动范围必须在0-3600秒之间")
+                new_config["request_jitter"] = jitter
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="抖动范围必须是有效的数字")
+
         # 直接使用存储适配器保存配置
         storage_adapter = await get_storage_adapter()
         for key, value in new_config.items():
@@ -250,6 +278,19 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
                 await rate_limiter.refresh_config()
             except Exception as e:
                 log.warning(f"刷新限流配置失败: {e}")
+
+        # 如果请求节流相关配置发生变化，立即刷新节流器配置（热更新）
+        request_throttle_keys = {
+            "request_throttle_enabled",
+            "request_min_interval",
+            "request_jitter",
+        }
+        if request_throttle_keys & set(new_config.keys()):
+            try:
+                from src.request_pacer import request_pacer
+                await request_pacer.refresh_config()
+            except Exception as e:
+                log.warning(f"刷新请求节流配置失败: {e}")
 
         # 如果保活相关配置发生变化，立即重启保活服务
         keepalive_keys = {"keepalive_url", "keepalive_interval"}

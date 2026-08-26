@@ -2764,9 +2764,13 @@ function populateConfigForm() {
     setConfigField('keepaliveInterval', c.keepalive_interval || 60);
 
     document.getElementById('rateLimitEnabled').checked = Boolean(c.rate_limit_enabled);
-    setConfigField('rateLimitMaxConcurrent', c.rate_limit_max_concurrent || 10);
-    setConfigField('rateLimitRequestsPerWindow', c.rate_limit_requests_per_window || 30);
+    setConfigField('rateLimitMaxConcurrent', c.rate_limit_max_concurrent || 5);
+    setConfigField('rateLimitRequestsPerWindow', c.rate_limit_requests_per_window || 20);
     setConfigField('rateLimitWindowSeconds', c.rate_limit_window_seconds || 60);
+
+    document.getElementById('requestThrottleEnabled').checked = Boolean(c.request_throttle_enabled);
+    setConfigField('requestMinInterval', c.request_min_interval || 2.0);
+    setConfigField('requestJitter', c.request_jitter || 2.0);
 }
 
 function setConfigField(fieldId, value) {
@@ -2820,9 +2824,12 @@ async function saveConfig() {
             keepalive_url: getValue('keepaliveUrl'),
             keepalive_interval: getInt('keepaliveInterval', 60),
             rate_limit_enabled: getChecked('rateLimitEnabled'),
-            rate_limit_max_concurrent: getInt('rateLimitMaxConcurrent', 10),
-            rate_limit_requests_per_window: getInt('rateLimitRequestsPerWindow', 30),
-            rate_limit_window_seconds: getInt('rateLimitWindowSeconds', 60)
+            rate_limit_max_concurrent: getInt('rateLimitMaxConcurrent', 5),
+            rate_limit_requests_per_window: getInt('rateLimitRequestsPerWindow', 20),
+            rate_limit_window_seconds: getInt('rateLimitWindowSeconds', 60),
+            request_throttle_enabled: getChecked('requestThrottleEnabled'),
+            request_min_interval: getFloat('requestMinInterval', 2.0),
+            request_jitter: getFloat('requestJitter', 2.0)
         };
 
         const response = await fetch('./config/save', {

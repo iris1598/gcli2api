@@ -51,6 +51,9 @@ ENV_MAPPINGS = {
     "RATE_LIMIT_MAX_CONCURRENT": "rate_limit_max_concurrent",
     "RATE_LIMIT_REQUESTS_PER_WINDOW": "rate_limit_requests_per_window",
     "RATE_LIMIT_WINDOW_SECONDS": "rate_limit_window_seconds",
+    "REQUEST_THROTTLE_ENABLED": "request_throttle_enabled",
+    "REQUEST_MIN_INTERVAL": "request_min_interval",
+    "REQUEST_JITTER": "request_jitter",
 }
 
 
@@ -525,7 +528,7 @@ async def get_rate_limit_max_concurrent() -> int:
 
     Environment variable: RATE_LIMIT_MAX_CONCURRENT
     Database config key: rate_limit_max_concurrent
-    Default: 10
+    Default: 5
     """
     env_value = os.getenv("RATE_LIMIT_MAX_CONCURRENT")
     if env_value:
@@ -534,7 +537,7 @@ async def get_rate_limit_max_concurrent() -> int:
         except ValueError:
             pass
 
-    return int(await get_config_value("rate_limit_max_concurrent", 10))
+    return int(await get_config_value("rate_limit_max_concurrent", 5))
 
 
 async def get_rate_limit_requests_per_window() -> int:
@@ -545,7 +548,7 @@ async def get_rate_limit_requests_per_window() -> int:
 
     Environment variable: RATE_LIMIT_REQUESTS_PER_WINDOW
     Database config key: rate_limit_requests_per_window
-    Default: 30
+    Default: 20
     """
     env_value = os.getenv("RATE_LIMIT_REQUESTS_PER_WINDOW")
     if env_value:
@@ -554,7 +557,7 @@ async def get_rate_limit_requests_per_window() -> int:
         except ValueError:
             pass
 
-    return int(await get_config_value("rate_limit_requests_per_window", 30))
+    return int(await get_config_value("rate_limit_requests_per_window", 20))
 
 
 async def get_rate_limit_window_seconds() -> int:
@@ -575,3 +578,60 @@ async def get_rate_limit_window_seconds() -> int:
             pass
 
     return int(await get_config_value("rate_limit_window_seconds", 60))
+
+
+async def get_request_throttle_enabled() -> bool:
+    """
+    Get request throttle enabled setting.
+
+    是否启用单账号请求节流（防封禁）。
+
+    Environment variable: REQUEST_THROTTLE_ENABLED
+    Database config key: request_throttle_enabled
+    Default: False
+    """
+    env_value = os.getenv("REQUEST_THROTTLE_ENABLED")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(await get_config_value("request_throttle_enabled", False))
+
+
+async def get_request_min_interval() -> float:
+    """
+    Get minimum interval between requests.
+
+    相邻两次请求之间的最小间隔（秒）。
+
+    Environment variable: REQUEST_MIN_INTERVAL
+    Database config key: request_min_interval
+    Default: 2.0
+    """
+    env_value = os.getenv("REQUEST_MIN_INTERVAL")
+    if env_value:
+        try:
+            return max(0.0, float(env_value))
+        except ValueError:
+            pass
+
+    return float(await get_config_value("request_min_interval", 2.0))
+
+
+async def get_request_jitter() -> float:
+    """
+    Get request jitter range.
+
+    每次请求额外附加的随机抖动上限（秒），实际抖动在 [0, jitter] 内随机。
+
+    Environment variable: REQUEST_JITTER
+    Database config key: request_jitter
+    Default: 2.0
+    """
+    env_value = os.getenv("REQUEST_JITTER")
+    if env_value:
+        try:
+            return max(0.0, float(env_value))
+        except ValueError:
+            pass
+
+    return float(await get_config_value("request_jitter", 2.0))

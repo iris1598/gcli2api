@@ -2162,14 +2162,14 @@
                             <div class="form-group">
                                 <label for="rateLimitMaxConcurrent">最大并发数:</label>
                                 <input type="number" id="rateLimitMaxConcurrent" class="config-input" min="0"
-                                    placeholder="10" />
+                                    placeholder="5" />
                                 <small class="config-note">同一时刻最多允许同时处理的请求数，设为 0 表示不限制并发</small>
                             </div>
 
                             <div class="form-group">
                                 <label for="rateLimitRequestsPerWindow">窗口内最大请求数:</label>
                                 <input type="number" id="rateLimitRequestsPerWindow" class="config-input" min="1"
-                                    placeholder="30" />
+                                    placeholder="20" />
                                 <small class="config-note">在每个时间窗口（秒）内允许处理的最大请求总数</small>
                             </div>
 
@@ -2184,10 +2184,45 @@
                                 <div class="config-info"
                                     style="background-color: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20;">
                                     <strong>✅ 提示：</strong>超过限制的请求会收到 HTTP 429 错误。并发控制对当前正在处理的请求计数，流式响应会持续占用并发名额直到传输完成。
+                                    <br><strong>🔗 与"请求节流"的关系：</strong>并发控制在请求入口计数（满了返回 429）；请求节流在发送给 Google 前排队等待（不拒绝）。两者可同时开启，节流负责抹平上游节奏、并发上限只作兜底保护。若节流间隔较大，建议把并发上限设大一些或设为 0（不限），避免请求在排队期间被 429 拒掉。
                                 </div>
                             </div>
                         </div>
 
+
+                        <div class="config-group">
+                            <h4>请求节流与抖动（防封禁）</h4>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="requestThrottleEnabled" class="config-checkbox" />
+                                    启用请求节流
+                                </label>
+                                <small class="config-note">单账号防封禁：每次向 Google 发送聊天请求前先节流（最小间隔 + 随机抖动），把请求节奏抹平滑 <span
+                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="requestMinInterval">最小请求间隔 (秒):</label>
+                                <input type="number" id="requestMinInterval" class="config-input" min="0" max="3600"
+                                    step="0.1" placeholder="2.0" />
+                                <small class="config-note">相邻两次请求之间的最小间隔，设为 0 表示只做随机抖动</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="requestJitter">随机抖动上限 (秒):</label>
+                                <input type="number" id="requestJitter" class="config-input" min="0" max="3600"
+                                    step="0.1" placeholder="2.0" />
+                                <small class="config-note">每次请求额外附加的随机延迟范围，实际值在 [0, 上限] 内随机</small>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="config-info"
+                                    style="background-color: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20;">
+                                    <strong>✅ 提示：</strong>单账号建议设置 最小间隔 2~5 秒 + 抖动 2~3 秒（保守）。并发请求会自动排队，避免瞬间打出大量请求导致封号。若并发限制同时开启，建议把并发上限设为 5+ 或 0（不限）。
+                                </div>
+                            </div>
+                        </div>
 
                         <div class="config-group">
                             <h4>兼容性配置</h4>
@@ -2305,7 +2340,7 @@
                                         <li><strong>API配置：</strong>凭证轮换次数、错误重试设置、自动封禁配置</li>
                                         <li><strong>密码配置：</strong>API密码、控制面板密码、通用密码</li>
                                         <li><strong>功能配置：</strong>抗截断最大重试次数</li>
-                                        <li><strong>限流配置：</strong>并发与速率控制</li>
+                                        <li><strong>限流配置：</strong>并发与速率控制、请求节流与抖动</li>
                                     </ul>
                                 </div>
                             </div>
