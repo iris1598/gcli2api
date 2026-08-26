@@ -2762,6 +2762,11 @@ function populateConfigForm() {
 
     setConfigField('keepaliveUrl', c.keepalive_url || '');
     setConfigField('keepaliveInterval', c.keepalive_interval || 60);
+
+    document.getElementById('rateLimitEnabled').checked = Boolean(c.rate_limit_enabled);
+    setConfigField('rateLimitMaxConcurrent', c.rate_limit_max_concurrent || 10);
+    setConfigField('rateLimitRequestsPerWindow', c.rate_limit_requests_per_window || 30);
+    setConfigField('rateLimitWindowSeconds', c.rate_limit_window_seconds || 60);
 }
 
 function setConfigField(fieldId, value) {
@@ -2813,7 +2818,11 @@ async function saveConfig() {
             antigravity_switch_credential_enabled: getChecked('antigravitySwitchCredentialEnabled'),
             anti_truncation_max_attempts: getInt('antiTruncationMaxAttempts', 3),
             keepalive_url: getValue('keepaliveUrl'),
-            keepalive_interval: getInt('keepaliveInterval', 60)
+            keepalive_interval: getInt('keepaliveInterval', 60),
+            rate_limit_enabled: getChecked('rateLimitEnabled'),
+            rate_limit_max_concurrent: getInt('rateLimitMaxConcurrent', 10),
+            rate_limit_requests_per_window: getInt('rateLimitRequestsPerWindow', 30),
+            rate_limit_window_seconds: getInt('rateLimitWindowSeconds', 60)
         };
 
         const response = await fetch('./config/save', {

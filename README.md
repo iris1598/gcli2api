@@ -4,14 +4,14 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: CNC-1.0](https://img.shields.io/badge/License-CNC--1.0-red.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/docker-available-blue.svg)](https://github.com/su-kaka/gcli2api/pkgs/container/gcli2api)
+[![Docker](https://img.shields.io/badge/docker-available-blue.svg)](https://github.com/iris1598/gcli2api/pkgs/container/gcli2api)
 
 [English](docs/README_EN.md) | 中文 | [日本語](docs/README_JA.md)
 
 ## 🚀 快速部署 
 
 [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/97VMEF?referralCode=sukaka)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/su-kaka/gcli2api)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/iris1598/gcli2api)
 ---
 
 ## 安装指南
@@ -20,7 +20,7 @@
 
 **初始安装**
 ```bash
-curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
+curl -o termux-install.sh "https://raw.githubusercontent.com/iris1598/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
 ```
 
 **重启服务**
@@ -33,7 +33,7 @@ bash termux-start.sh
 
 **初始安装**
 ```powershell
-iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
+iex (iwr "https://raw.githubusercontent.com/iris1598/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
 ```
 
 **重启服务**
@@ -43,7 +43,7 @@ iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/i
 
 **初始安装**
 ```bash
-curl -o install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
+curl -o install.sh "https://raw.githubusercontent.com/iris1598/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
 ```
 
 **重启服务**
@@ -56,7 +56,7 @@ bash start.sh
 
 **初始安装**
 ```bash
-curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
+curl -o darwin-install.sh "https://raw.githubusercontent.com/iris1598/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
 ```
 
 **重启服务**
@@ -460,6 +460,14 @@ export MONGODB_URI="mongodb://localhost:27017/gcli2api?readPreference=secondaryP
 - `RETRY_429_MAX_RETRIES`: 429 错误最大重试次数（默认：3）
 - `RETRY_429_INTERVAL`: 429 错误重试间隔，秒（默认：1.0）
 - `ANTI_TRUNCATION_MAX_ATTEMPTS`: 抗截断最大重试次数（默认：3）
+
+**并发与速率控制配置（可在控制面板"配置管理"中设置并热更新）**
+- `RATE_LIMIT_ENABLED`: 启用限流（默认：false）
+- `RATE_LIMIT_MAX_CONCURRENT`: 同一时刻最大并发请求数，0 表示不限（默认：10）
+- `RATE_LIMIT_REQUESTS_PER_WINDOW`: 时间窗口内最大请求数（默认：30）
+- `RATE_LIMIT_WINDOW_SECONDS`: 限流时间窗口，秒（默认：60）
+
+> 超过限制的请求会返回 HTTP 429。并发控制覆盖 /v1、/v1beta、/antigravity 的聊天 API 请求，流式响应会持续占用并发名额直到传输完成。
 
 **网络和代理配置**
 - `PROXY`: HTTP/HTTPS 代理地址（格式：`http://host:port`）

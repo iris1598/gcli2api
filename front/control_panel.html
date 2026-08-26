@@ -2147,6 +2147,47 @@
                             </div>
                         </div>
 
+                        <div class="config-group">
+                            <h4>并发与速率控制</h4>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="rateLimitEnabled" class="config-checkbox" />
+                                    启用限流
+                                </label>
+                                <small class="config-note">对聊天 API（/v1、/v1beta、/antigravity）进行并发与速率限制，防止服务被打爆 <span
+                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="rateLimitMaxConcurrent">最大并发数:</label>
+                                <input type="number" id="rateLimitMaxConcurrent" class="config-input" min="0"
+                                    placeholder="10" />
+                                <small class="config-note">同一时刻最多允许同时处理的请求数，设为 0 表示不限制并发</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="rateLimitRequestsPerWindow">窗口内最大请求数:</label>
+                                <input type="number" id="rateLimitRequestsPerWindow" class="config-input" min="1"
+                                    placeholder="30" />
+                                <small class="config-note">在每个时间窗口（秒）内允许处理的最大请求总数</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="rateLimitWindowSeconds">限流时间窗口 (秒):</label>
+                                <input type="number" id="rateLimitWindowSeconds" class="config-input" min="1"
+                                    max="86400" placeholder="60" />
+                                <small class="config-note">速率统计的时间窗口长度，范围 1 - 86400 秒</small>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="config-info"
+                                    style="background-color: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20;">
+                                    <strong>✅ 提示：</strong>超过限制的请求会收到 HTTP 429 错误。并发控制对当前正在处理的请求计数，流式响应会持续占用并发名额直到传输完成。
+                                </div>
+                            </div>
+                        </div>
+
 
                         <div class="config-group">
                             <h4>兼容性配置</h4>
@@ -2264,6 +2305,7 @@
                                         <li><strong>API配置：</strong>凭证轮换次数、错误重试设置、自动封禁配置</li>
                                         <li><strong>密码配置：</strong>API密码、控制面板密码、通用密码</li>
                                         <li><strong>功能配置：</strong>抗截断最大重试次数</li>
+                                        <li><strong>限流配置：</strong>并发与速率控制</li>
                                     </ul>
                                 </div>
                             </div>
@@ -2335,8 +2377,8 @@
                     </p>
                     <div style="margin: 15px 0;">
                         <p style="margin: 5px 0;"><strong>🔗 项目地址：</strong> <a
-                                href="https://github.com/su-kaka/gcli2api" target="_blank"
-                                style="color: #007bff; text-decoration: none;">GitHub - su-kaka/gcli2api</a></p>
+                                href="https://github.com/iris1598/gcli2api" target="_blank"
+                                style="color: #007bff; text-decoration: none;">GitHub - iris1598/gcli2api</a></p>
                         <p style="margin: 5px 0;"><strong>⚠️ 使用声明：</strong> <span
                                 style="color: #dc3545; font-weight: 500;">禁止商业用途和倒卖 - 仅供学习使用</span></p>
                     </div>
@@ -2397,8 +2439,8 @@
             <div
                 style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-top: 30px; text-align: center; border-left: 4px solid #007bff;">
                 <p style="margin: 5px 0; font-size: 14px; color: #495057;">GitHub: <a
-                        href="https://github.com/su-kaka/gcli2api" target="_blank"
-                        style="color: #007bff; text-decoration: none;">https://github.com/su-kaka/gcli2api</a></p>
+                        href="https://github.com/iris1598/gcli2api" target="_blank"
+                        style="color: #007bff; text-decoration: none;">https://github.com/iris1598/gcli2api</a></p>
                 <p style="margin: 5px 0; font-size: 14px; color: #dc3545; font-weight: 500;">⚠️ 禁止商业用途和倒卖 - 仅供学习使用 ⚠️
                 </p>
             </div>

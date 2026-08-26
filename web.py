@@ -31,6 +31,7 @@ from src.router.geminicli.model_list import router as geminicli_model_list_route
 from src.task_manager import shutdown_all_tasks
 from src.panel import router as panel_router
 from src.keeplive import keepalive_service
+from src.rate_limiter import RateLimitMiddleware
 
 # 全局凭证管理器
 global_credential_manager = None
@@ -191,6 +192,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 并发/速率控制中间件（对聊天 API 请求进行限流，配置见控制面板）
+app.add_middleware(RateLimitMiddleware)
 
 # 挂载路由器
 # OpenAI兼容路由 - 处理OpenAI格式请求

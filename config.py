@@ -47,6 +47,10 @@ ENV_MAPPINGS = {
     "PASSWORD": "password",
     "KEEPALIVE_URL": "keepalive_url",
     "KEEPALIVE_INTERVAL": "keepalive_interval",
+    "RATE_LIMIT_ENABLED": "rate_limit_enabled",
+    "RATE_LIMIT_MAX_CONCURRENT": "rate_limit_max_concurrent",
+    "RATE_LIMIT_REQUESTS_PER_WINDOW": "rate_limit_requests_per_window",
+    "RATE_LIMIT_WINDOW_SECONDS": "rate_limit_window_seconds",
 }
 
 
@@ -494,3 +498,80 @@ async def get_keepalive_interval() -> int:
             pass
 
     return int(await get_config_value("keepalive_interval", 60))
+
+
+async def get_rate_limit_enabled() -> bool:
+    """
+    Get rate limit enabled setting.
+
+    是否启用并发/速率控制。
+
+    Environment variable: RATE_LIMIT_ENABLED
+    Database config key: rate_limit_enabled
+    Default: False
+    """
+    env_value = os.getenv("RATE_LIMIT_ENABLED")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(await get_config_value("rate_limit_enabled", False))
+
+
+async def get_rate_limit_max_concurrent() -> int:
+    """
+    Get max concurrent requests.
+
+    同一时刻最多处理的请求数，0 表示不限制并发。
+
+    Environment variable: RATE_LIMIT_MAX_CONCURRENT
+    Database config key: rate_limit_max_concurrent
+    Default: 10
+    """
+    env_value = os.getenv("RATE_LIMIT_MAX_CONCURRENT")
+    if env_value:
+        try:
+            return max(0, int(env_value))
+        except ValueError:
+            pass
+
+    return int(await get_config_value("rate_limit_max_concurrent", 10))
+
+
+async def get_rate_limit_requests_per_window() -> int:
+    """
+    Get max requests per window.
+
+    时间窗口（秒）内最多处理的请求数。
+
+    Environment variable: RATE_LIMIT_REQUESTS_PER_WINDOW
+    Database config key: rate_limit_requests_per_window
+    Default: 30
+    """
+    env_value = os.getenv("RATE_LIMIT_REQUESTS_PER_WINDOW")
+    if env_value:
+        try:
+            return max(0, int(env_value))
+        except ValueError:
+            pass
+
+    return int(await get_config_value("rate_limit_requests_per_window", 30))
+
+
+async def get_rate_limit_window_seconds() -> int:
+    """
+    Get rate limit window in seconds.
+
+    速率统计的时间窗口长度（秒）。
+
+    Environment variable: RATE_LIMIT_WINDOW_SECONDS
+    Database config key: rate_limit_window_seconds
+    Default: 60
+    """
+    env_value = os.getenv("RATE_LIMIT_WINDOW_SECONDS")
+    if env_value:
+        try:
+            return max(1, int(env_value))
+        except ValueError:
+            pass
+
+    return int(await get_config_value("rate_limit_window_seconds", 60))

@@ -64,6 +64,12 @@ async def get_config(token: str = Depends(verify_panel_token)):
         current_config["keepalive_url"] = await config.get_keepalive_url()
         current_config["keepalive_interval"] = await config.get_keepalive_interval()
 
+        # 并发与速率控制配置
+        current_config["rate_limit_enabled"] = await config.get_rate_limit_enabled()
+        current_config["rate_limit_max_concurrent"] = await config.get_rate_limit_max_concurrent()
+        current_config["rate_limit_requests_per_window"] = await config.get_rate_limit_requests_per_window()
+        current_config["rate_limit_window_seconds"] = await config.get_rate_limit_window_seconds()
+
         # 服务器配置
         current_config["host"] = await config.get_server_host()
         current_config["port"] = await config.get_server_port()
@@ -188,6 +194,38 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
         # 获取环境变量锁定的配置键
         env_locked_keys = get_env_locked_keys()
 
+        # 验证并发与速率控制配置
+        if "rate_limit_enabled" in new_config:
+            if not isinstance(new_config["rate_limit_enabled"], bool):
+                raise HTTPException(status_code=400, detail="限流开关必须是布尔值")
+
+        if "rate_limit_max_concurrent" in new_config:
+            try:
+                concurrent = int(new_config["rate_limit_max_concurrent"])
+                if concurrent < 0:
+                    raise HTTPException(status_code=400, detail="最大并发数必须大于等于0")
+                new_config["rate_limit_max_concurrent"] = concurrent
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="最大并发数必须是有效整数")
+
+        if "rate_limit_requests_per_window" in new_config:
+            try:
+                requests = int(new_config["rate_limit_requests_per_window"])
+                if requests < 1:
+                    raise HTTPException(status_code=400, detail="窗口内最大请求数必须大于等于1")
+                new_config["rate_limit_requests_per_window"] = requests
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="窗口内最大请求数必须是有效整数")
+
+        if "rate_limit_window_seconds" in new_config:
+            try:
+                window = int(new_config["rate_limit_window_seconds"])
+                if window < 1 or window > 86400:
+                    raise HTTPException(status_code=400, detail="限流时间窗口必须在1-86400秒之间")
+                new_config["rate_limit_window_seconds"] = window
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="限流时间窗口必须是有效整数")
+
         # 直接使用存储适配器保存配置
         storage_adapter = await get_storage_adapter()
         for key, value in new_config.items():
@@ -198,6 +236,20 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
 
         # 重新加载配置缓存（关键！）
         await config.reload_config()
+
+        # 如果限流相关配置发生变化，立即刷新限流器配置（热更新）
+        rate_limit_keys = {
+            "rate_limit_enabled",
+            "rate_limit_max_concurrent",
+            "rate_limit_requests_per_window",
+            "rate_limit_window_seconds",
+        }
+        if rate_limit_keys & set(new_config.keys()):
+            try:
+                from src.rate_limiter import rate_limiter
+                await rate_limiter.refresh_config()
+            except Exception as e:
+                log.warning(f"刷新限流配置失败: {e}")
 
         # 如果保活相关配置发生变化，立即重启保活服务
         keepalive_keys = {"keepalive_url", "keepalive_interval"}
