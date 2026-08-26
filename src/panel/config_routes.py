@@ -74,6 +74,7 @@ async def get_config(token: str = Depends(verify_panel_token)):
         current_config["request_throttle_enabled"] = await config.get_request_throttle_enabled()
         current_config["request_min_interval"] = await config.get_request_min_interval()
         current_config["request_jitter"] = await config.get_request_jitter()
+        current_config["request_serial_enabled"] = await config.get_request_serial_enabled()
 
         # 服务器配置
         current_config["host"] = await config.get_server_host()
@@ -254,6 +255,10 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
             except (ValueError, TypeError):
                 raise HTTPException(status_code=400, detail="抖动范围必须是有效的数字")
 
+        if "request_serial_enabled" in new_config:
+            if not isinstance(new_config["request_serial_enabled"], bool):
+                raise HTTPException(status_code=400, detail="串行模式开关必须是布尔值")
+
         # 直接使用存储适配器保存配置
         storage_adapter = await get_storage_adapter()
         for key, value in new_config.items():
@@ -284,6 +289,7 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
             "request_throttle_enabled",
             "request_min_interval",
             "request_jitter",
+            "request_serial_enabled",
         }
         if request_throttle_keys & set(new_config.keys()):
             try:

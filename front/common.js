@@ -2769,6 +2769,7 @@ function populateConfigForm() {
     setConfigField('rateLimitWindowSeconds', c.rate_limit_window_seconds || 60);
 
     document.getElementById('requestThrottleEnabled').checked = Boolean(c.request_throttle_enabled);
+    document.getElementById('requestSerialEnabled').checked = Boolean(c.request_serial_enabled);
     setConfigField('requestMinInterval', c.request_min_interval || 2.0);
     setConfigField('requestJitter', c.request_jitter || 2.0);
 }
@@ -2828,6 +2829,7 @@ async function saveConfig() {
             rate_limit_requests_per_window: getInt('rateLimitRequestsPerWindow', 20),
             rate_limit_window_seconds: getInt('rateLimitWindowSeconds', 60),
             request_throttle_enabled: getChecked('requestThrottleEnabled'),
+            request_serial_enabled: getChecked('requestSerialEnabled'),
             request_min_interval: getFloat('requestMinInterval', 2.0),
             request_jitter: getFloat('requestJitter', 2.0)
         };

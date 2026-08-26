@@ -1928,6 +1928,15 @@
                             </div>
 
                             <div class="form-group">
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="checkbox" id="requestSerialEnabled" style="margin-right: 8px;" />
+                                    串行模式（上个请求结束后再发下个）
+                                </label>
+                                <small style="display: block; color: #666; font-size: 12px; margin-top: 5px;">间隔从上一个请求的【结束时刻】起算，请求严格排队、不重叠发送；适合 Antigravity CLI 等单账号/单会话场景
+                                    <span style="color: #28a745;">✓ 支持热更新</span></small>
+                            </div>
+
+                            <div class="form-group">
                                 <label for="requestMinInterval">最小请求间隔 (秒):</label>
                                 <input type="number" id="requestMinInterval" min="0" max="3600" step="0.1"
                                     placeholder="2.0" />

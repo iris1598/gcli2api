@@ -20,6 +20,7 @@ from config import (
     get_rate_limit_window_seconds,
 )
 from log import log
+from src.request_pacer import request_pacer
 
 
 class RateLimiter:
@@ -131,27 +132,39 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # 串行模式：等待上一个请求【结束】后再进入（等待期间不占用并发名额）
+        turn_held = await request_pacer.acquire_turn()
+
         if not await rate_limiter.acquire():
+            if turn_held:
+                request_pacer.release_turn()
             await self._send_429(send)
             return
 
         released = False
+        released_turn = False
 
         async def send_wrapper(message):
-            nonlocal released
+            nonlocal released, released_turn
             await send(message)
-            # 响应体发送完成后释放并发占用（包含流式响应的最后一帧）
+            # 响应体发送完成后释放（包含流式响应的最后一帧）
             if message["type"] == "http.response.body" and not message.get("more_body"):
+                # 先释放并发名额，再释放回合：避免下个排队请求醒来时并发仍满
                 if not released:
                     released = True
                     await rate_limiter.release()
+                if turn_held and not released_turn:
+                    released_turn = True
+                    request_pacer.release_turn()
 
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            # 兜底释放，防止客户端中断连接等情况导致并发名额泄漏
+            # 兜底释放，防止客户端中断连接等情况导致名额泄漏
             if not released:
                 await rate_limiter.release()
+            if turn_held and not released_turn:
+                request_pacer.release_turn()
 
     async def _send_429(self, send):
         body = json.dumps(

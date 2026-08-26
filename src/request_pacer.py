@@ -15,19 +15,23 @@ from config import (
     get_request_throttle_enabled,
     get_request_min_interval,
     get_request_jitter,
+    get_request_serial_enabled,
 )
 from log import log
 
 
 class RequestPacer:
-    """单账号请求节流器（最小间隔 + 随机抖动）"""
+    """单账号请求节流器（最小间隔 + 随机抖动 + 可选串行模式）"""
 
     def __init__(self):
         self._lock = asyncio.Lock()
         self._enabled = False
+        self._serial_mode = False
         self._min_interval = 0.0
         self._jitter = 0.0
         self._last_sent = None
+        self._last_finished = None
+        self._turn_lock = asyncio.Lock()
         self._refresh_interval = 5.0
         self._last_refresh = 0.0
 
@@ -35,6 +39,7 @@ class RequestPacer:
         """从配置系统读取最新配置（支持控制面板热更新）"""
         try:
             enabled = await get_request_throttle_enabled()
+            serial_enabled = await get_request_serial_enabled()
             min_interval = await get_request_min_interval()
             jitter = await get_request_jitter()
         except Exception as e:
@@ -42,6 +47,7 @@ class RequestPacer:
             return
 
         self._enabled = bool(enabled)
+        self._serial_mode = bool(serial_enabled)
         self._min_interval = max(0.0, float(min_interval))
         self._jitter = max(0.0, float(jitter))
         self._last_refresh = time.monotonic()
@@ -52,10 +58,13 @@ class RequestPacer:
             await self.refresh_config()
 
     async def pace(self):
-        """在发送请求前调用，确保与上一次请求保持最小间隔并加入随机抖动。"""
+        """在发送请求前调用（非串行模式）：按上一个请求的发送时刻起算最小间隔 + 随机抖动。"""
         await self._maybe_refresh()
 
         if not self._enabled:
+            return
+        # 串行模式下间隔由 acquire_turn 按“上一个请求结束时刻”起算，这里不再重复节流
+        if self._serial_mode:
             return
 
         # 加锁让并发请求串行排队，保证请求间隔真正生效
@@ -77,6 +86,44 @@ class RequestPacer:
                 await asyncio.sleep(wait)
 
             self._last_sent = time.monotonic()
+
+    async def acquire_turn(self) -> bool:
+        """串行模式：请求开始前调用，等待上一个请求结束后再进入。
+
+        按上一个请求的【结束时刻】起算最小间隔 + 随机抖动。
+        返回 True 表示已持有“回合”（调用方需在请求结束后调用 release_turn）。
+        """
+        await self._maybe_refresh()
+
+        if not (self._enabled and self._serial_mode):
+            return False
+
+        await self._turn_lock.acquire()
+
+        # 距上一个请求结束的间隔 + 随机抖动
+        wait = 0.0
+        now = time.monotonic()
+        if self._last_finished is not None:
+            elapsed = now - self._last_finished
+            if elapsed < self._min_interval:
+                wait = self._min_interval - elapsed
+        wait += random.uniform(0.0, self._jitter)
+
+        if wait > 0:
+            last_delta = (now - self._last_finished) if self._last_finished else 0.0
+            log.debug(
+                f"[REQUEST_PACER][SERIAL] 距上次结束 {last_delta:.2f}s，"
+                f"等待 {wait:.2f}s (最小间隔 {self._min_interval}s, 抖动 {self._jitter}s)"
+            )
+            await asyncio.sleep(wait)
+
+        return True
+
+    def release_turn(self):
+        """串行模式：请求【完成】（含流式结束/失败/客户端断开）后调用。"""
+        self._last_finished = time.monotonic()
+        if self._turn_lock.locked():
+            self._turn_lock.release()
 
 
 # 全局节流器实例

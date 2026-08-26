@@ -54,6 +54,7 @@ ENV_MAPPINGS = {
     "REQUEST_THROTTLE_ENABLED": "request_throttle_enabled",
     "REQUEST_MIN_INTERVAL": "request_min_interval",
     "REQUEST_JITTER": "request_jitter",
+    "REQUEST_SERIAL_ENABLED": "request_serial_enabled",
 }
 
 
@@ -635,3 +636,21 @@ async def get_request_jitter() -> float:
             pass
 
     return float(await get_config_value("request_jitter", 2.0))
+
+
+async def get_request_serial_enabled() -> bool:
+    """
+    Get request serial mode setting.
+
+    串行模式：上一个请求【结束后】再发送下一个请求（间隔从结束时刻起算），
+    严格排队、请求之间不重叠。适合 Antigravity CLI 等单账号/单会话场景。
+
+    Environment variable: REQUEST_SERIAL_ENABLED
+    Database config key: request_serial_enabled
+    Default: False
+    """
+    env_value = os.getenv("REQUEST_SERIAL_ENABLED")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(await get_config_value("request_serial_enabled", False))
