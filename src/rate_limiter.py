@@ -96,6 +96,16 @@ class RateLimiter:
             if self._active > 0:
                 self._active -= 1
 
+    def release_nowait(self) -> None:
+        """同步释放一个请求配额。
+
+        供 ASGI 中间件的清理路径使用：清理阶段不能出现 await 点，否则任务被取消时
+        可能既没释放并发名额、也没释放串行回合锁（回合锁会永久 locked）。
+        单线程事件循环下这里只是一次自减，不需要加锁。
+        """
+        if self._active > 0:
+            self._active -= 1
+
     def is_relevant(self, path: str, method: str) -> bool:
         """判断请求是否参与限流。
 
@@ -132,39 +142,51 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # 串行模式：等待上一个请求【结束】后再进入（等待期间不占用并发名额）
-        turn_held = await request_pacer.acquire_turn()
-
-        if not await rate_limiter.acquire():
-            if turn_held:
-                request_pacer.release_turn()
-            await self._send_429(send)
-            return
-
-        released = False
+        turn_held = False
+        rate_held = False
         released_turn = False
+        released_rate = False
+
+        def release_turn_once():
+            """同步归还回合锁：不包含 await，因此在被取消的清理路径上也一定会执行。"""
+            nonlocal released_turn
+            if turn_held and not released_turn:
+                released_turn = True
+                request_pacer.release_turn()
+
+        def release_rate_once():
+            """同步归还并发名额：理由同 release_turn_once。"""
+            nonlocal released_rate
+            if rate_held and not released_rate:
+                released_rate = True
+                rate_limiter.release_nowait()
 
         async def send_wrapper(message):
-            nonlocal released, released_turn
             await send(message)
             # 响应体发送完成后释放（包含流式响应的最后一帧）
             if message["type"] == "http.response.body" and not message.get("more_body"):
                 # 先释放并发名额，再释放回合：避免下个排队请求醒来时并发仍满
-                if not released:
-                    released = True
-                    await rate_limiter.release()
-                if turn_held and not released_turn:
-                    released_turn = True
-                    request_pacer.release_turn()
+                release_rate_once()
+                release_turn_once()
 
         try:
+            # 1. 串行模式排队：整个流程都在 try 保护之下，任何异常/取消都不会泄漏回合锁
+            turn_held = await request_pacer.acquire_turn()
+
+            # 2. 并发/速率检查
+            if not await rate_limiter.acquire():
+                await self._send_429(send)
+                return
+            rate_held = True
+
             await self.app(scope, receive, send_wrapper)
         finally:
-            # 兜底释放，防止客户端中断连接等情况导致名额泄漏
-            if not released:
-                await rate_limiter.release()
-            if turn_held and not released_turn:
-                request_pacer.release_turn()
+            # 兜底释放：客户端断开、任务被取消或任何未捕获异常都不能让名额/回合锁泄漏。
+            # 两个释放动作都是同步的（没有 await 点），因此清理过程不可能被取消打断。
+            try:
+                release_rate_once()
+            finally:
+                release_turn_once()
 
     async def _send_429(self, send):
         body = json.dumps(

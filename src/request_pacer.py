@@ -92,32 +92,43 @@ class RequestPacer:
 
         按上一个请求的【结束时刻】起算最小间隔 + 随机抖动。
         返回 True 表示已持有“回合”（调用方需在请求结束后调用 release_turn）。
+
+        只取决于串行开关本身：控制面板里「串行模式」是独立勾选项，
+        之前要求同时打开「请求节流」才会生效，导致只勾串行时静默无效。
         """
         await self._maybe_refresh()
 
-        if not (self._enabled and self._serial_mode):
+        if not self._serial_mode:
             return False
 
         await self._turn_lock.acquire()
 
-        # 距上一个请求结束的间隔 + 随机抖动
-        wait = 0.0
-        now = time.monotonic()
-        if self._last_finished is not None:
-            elapsed = now - self._last_finished
-            if elapsed < self._min_interval:
-                wait = self._min_interval - elapsed
-        wait += random.uniform(0.0, self._jitter)
+        try:
+            # 距上一个请求结束的间隔 + 随机抖动
+            wait = 0.0
+            now = time.monotonic()
+            if self._last_finished is not None:
+                elapsed = now - self._last_finished
+                if elapsed < self._min_interval:
+                    wait = self._min_interval - elapsed
+            wait += random.uniform(0.0, self._jitter)
 
-        if wait > 0:
-            last_delta = (now - self._last_finished) if self._last_finished else 0.0
-            log.debug(
-                f"[REQUEST_PACER][SERIAL] 距上次结束 {last_delta:.2f}s，"
-                f"等待 {wait:.2f}s (最小间隔 {self._min_interval}s, 抖动 {self._jitter}s)"
-            )
-            await asyncio.sleep(wait)
+            if wait > 0:
+                last_delta = (now - self._last_finished) if self._last_finished else 0.0
+                log.debug(
+                    f"[REQUEST_PACER][SERIAL] 距上次结束 {last_delta:.2f}s，"
+                    f"等待 {wait:.2f}s (最小间隔 {self._min_interval}s, 抖动 {self._jitter}s)"
+                )
+                await asyncio.sleep(wait)
 
-        return True
+            return True
+        except BaseException:
+            # 关键：在等待间隔/抖动期间被取消（客户端断开、服务停止、任务被 cancel）
+            # 或发生任何异常时，必须立刻归还回合锁；否则 _turn_lock 永久 locked，
+            # 后续所有请求都会卡死在 acquire() 上，只能重启进程。
+            log.debug("[REQUEST_PACER][SERIAL] 等待间隔期间被取消/异常，已归还回合锁")
+            self.release_turn()
+            raise
 
     def release_turn(self):
         """串行模式：请求【完成】（含流式结束/失败/客户端断开）后调用。"""
