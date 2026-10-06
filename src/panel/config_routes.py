@@ -75,6 +75,7 @@ async def get_config(token: str = Depends(verify_panel_token)):
         current_config["request_min_interval"] = await config.get_request_min_interval()
         current_config["request_jitter"] = await config.get_request_jitter()
         current_config["request_serial_enabled"] = await config.get_request_serial_enabled()
+        current_config["stream_read_timeout"] = await config.get_stream_read_timeout()
 
         # 服务器配置
         current_config["host"] = await config.get_server_host()
@@ -258,6 +259,15 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
         if "request_serial_enabled" in new_config:
             if not isinstance(new_config["request_serial_enabled"], bool):
                 raise HTTPException(status_code=400, detail="串行模式开关必须是布尔值")
+
+        if "stream_read_timeout" in new_config:
+            try:
+                value = float(new_config["stream_read_timeout"])
+                if value < 0 or value > 86400:
+                    raise HTTPException(status_code=400, detail="上游流式读超时必须在0-86400秒之间")
+                new_config["stream_read_timeout"] = value
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="上游流式读超时必须是有效的数字")
 
         # 直接使用存储适配器保存配置
         storage_adapter = await get_storage_adapter()

@@ -2772,6 +2772,7 @@ function populateConfigForm() {
     document.getElementById('requestSerialEnabled').checked = Boolean(c.request_serial_enabled);
     setConfigField('requestMinInterval', c.request_min_interval || 2.0);
     setConfigField('requestJitter', c.request_jitter || 2.0);
+    setConfigField('streamReadTimeout', c.stream_read_timeout != null ? c.stream_read_timeout : 300);
 }
 
 function setConfigField(fieldId, value) {
@@ -2831,7 +2832,8 @@ async function saveConfig() {
             request_throttle_enabled: getChecked('requestThrottleEnabled'),
             request_serial_enabled: getChecked('requestSerialEnabled'),
             request_min_interval: getFloat('requestMinInterval', 2.0),
-            request_jitter: getFloat('requestJitter', 2.0)
+            request_jitter: getFloat('requestJitter', 2.0),
+            stream_read_timeout: getFloat('streamReadTimeout', 300)
         };
 
         const response = await fetch('./config/save', {
