@@ -126,15 +126,21 @@ class RequestPacer:
             # 关键：在等待间隔/抖动期间被取消（客户端断开、服务停止、任务被 cancel）
             # 或发生任何异常时，必须立刻归还回合锁；否则 _turn_lock 永久 locked，
             # 后续所有请求都会卡死在 acquire() 上，只能重启进程。
+            # 注意：这里只归还锁本身，不更新 _last_finished —— 该请求从未真正执行，
+            # 不应被记作“刚有一个请求结束”，否则串行时钟会被取消风暴不断重置。
             log.debug("[REQUEST_PACER][SERIAL] 等待间隔期间被取消/异常，已归还回合锁")
-            self.release_turn()
+            self._release_turn_lock()
             raise
+
+    def _release_turn_lock(self):
+        """仅归还回合锁本身（不更新串行计时），供 acquire 失败/被取消的清理路径使用。"""
+        if self._turn_lock.locked():
+            self._turn_lock.release()
 
     def release_turn(self):
         """串行模式：请求【完成】（含流式结束/失败/客户端断开）后调用。"""
         self._last_finished = time.monotonic()
-        if self._turn_lock.locked():
-            self._turn_lock.release()
+        self._release_turn_lock()
 
 
 # 全局节流器实例
