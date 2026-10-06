@@ -55,6 +55,7 @@ ENV_MAPPINGS = {
     "REQUEST_MIN_INTERVAL": "request_min_interval",
     "REQUEST_JITTER": "request_jitter",
     "REQUEST_SERIAL_ENABLED": "request_serial_enabled",
+    "STREAM_READ_TIMEOUT": "stream_read_timeout",
 }
 
 
@@ -654,3 +655,34 @@ async def get_request_serial_enabled() -> bool:
         return env_value.lower() in ("true", "1", "yes", "on")
 
     return bool(await get_config_value("request_serial_enabled", False))
+
+
+async def get_stream_read_timeout() -> float:
+    """
+    Get streaming read timeout (seconds).
+
+    上游流式响应「相邻两次网络读取之间」的最大空闲时长。超过后抛出
+    httpx.ReadTimeout，防止上游流中途挂起导致：
+    - 串行模式下回合锁永久占用（后续所有请求死锁，只能重启）
+    - 并发名额泄漏（限流开启时逐渐耗尽所有名额）
+
+    注意这是「块间空闲」超时而不是整个响应的总时长上限：只要上游持续
+    有数据到达就会不断重置计时，正常的超长生成（如 1M 上下文）不受影响。
+    设为 0 或负数可禁用（恢复旧的无限等待行为，不建议）。
+
+    Environment variable: STREAM_READ_TIMEOUT
+    Database config key: stream_read_timeout
+    Default: 300.0
+    """
+    env_value = os.getenv("STREAM_READ_TIMEOUT")
+    if env_value:
+        try:
+            return max(0.0, float(env_value))
+        except ValueError:
+            pass
+
+    try:
+        value = float(await get_config_value("stream_read_timeout", 300.0))
+    except (TypeError, ValueError):
+        return 300.0
+    return max(0.0, value)
