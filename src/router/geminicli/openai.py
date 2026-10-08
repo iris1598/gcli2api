@@ -37,6 +37,10 @@ from src.converter.fake_stream import (
     build_openai_fake_stream_chunks,
     create_openai_heartbeat_chunk,
 )
+from src.converter.policy_block import (
+    build_openai_error as build_policy_block_openai_error,
+    is_policy_block_text,
+)
 
 # 本地模块 - 基础路由工具
 from src.router.hi_check import is_health_check_request, create_health_check_response
@@ -145,6 +149,14 @@ async def chat_completions(
             status_code
         )
 
+        # 政策拦截等错误体：返回 400 而不是上游的 200
+        if (
+            isinstance(openai_response, dict)
+            and "error" in openai_response
+            and status_code == 200
+        ):
+            status_code = 400
+
         return JSONResponse(content=openai_response, status_code=status_code)
 
     # ========== 流式请求 ==========
@@ -189,6 +201,14 @@ async def chat_completions(
 
             # 使用统一的解析函数
             content, reasoning_content, finish_reason, images = parse_response_for_fake_stream(gemini_response)
+
+            # 政策拦截检测：上游把政策拒绝文案当正常回复（200）返回，
+            # 转换为显式错误，避免被当成正文输出
+            if is_policy_block_text(content):
+                log.warning("[POLICY_BLOCK] 假流式响应命中 Google 政策拦截")
+                yield f"data: {json.dumps(build_policy_block_openai_error(content))}\n\n".encode()
+                yield "data: [DONE]\n\n".encode()
+                return
 
             log.debug(f"OpenAI extracted content: {content}")
             log.debug(f"OpenAI extracted reasoning: {reasoning_content[:100] if reasoning_content else 'None'}...")

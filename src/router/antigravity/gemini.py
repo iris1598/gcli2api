@@ -37,6 +37,11 @@ from src.converter.fake_stream import (
     build_gemini_fake_stream_chunks,
     create_gemini_heartbeat_chunk,
 )
+from src.converter.policy_block import (
+    build_gemini_error as build_policy_block_gemini_error,
+    is_policy_block_response,
+    is_policy_block_text,
+)
 
 # 本地模块 - 基础路由工具
 from src.router.hi_check import is_health_check_request, create_health_check_response
@@ -119,6 +124,13 @@ async def generate_content(
             # 如果有 response 包装，解包装它
             if "response" in response_data:
                 unwrapped_data = response_data["response"]
+                # 政策拦截检测：上游把政策拒绝文案当正常回复（200）返回，
+                # 转换为显式错误，避免被当成正文输出
+                if is_policy_block_response(unwrapped_data):
+                    log.warning("[POLICY_BLOCK] 非流式响应命中 Google 政策拦截")
+                    return JSONResponse(
+                        content=build_policy_block_gemini_error(), status_code=400
+                    )
                 return JSONResponse(content=unwrapped_data)
         # 错误响应或没有 response 字段，直接返回
         return response
@@ -196,6 +208,14 @@ async def stream_generate_content(
 
             # 使用统一的解析函数
             content, reasoning_content, finish_reason, images = parse_response_for_fake_stream(response_data)
+
+            # 政策拦截检测：上游把政策拒绝文案当正常回复（200）返回，
+            # 转换为显式错误，避免被当成正文输出
+            if is_policy_block_text(content):
+                log.warning("[POLICY_BLOCK] 假流式响应命中 Google 政策拦截")
+                yield f"data: {json.dumps(build_policy_block_gemini_error(content))}\n\n".encode()
+                yield "data: [DONE]\n\n".encode()
+                return
 
             log.debug(f"Gemini extracted content: {content}")
             log.debug(f"Gemini extracted reasoning: {reasoning_content[:100] if reasoning_content else 'None'}...")
