@@ -43,6 +43,18 @@ def is_policy_block_text(text: Optional[str]) -> bool:
     return any(stripped.startswith(marker) for marker in POLICY_BLOCK_MARKERS)
 
 
+def contains_policy_marker(text: Optional[str]) -> bool:
+    """原文级检测：标记是否出现在文本任意位置（最后防线）
+
+    仅在响应体结构未知（如上游直接吐 SSE 文本、json 解析失败的兜底分支）
+    时使用。正常结构化响应请用 ``is_policy_block_response``，
+    它只做开头前缀匹配，误报风险更低。
+    """
+    if not text:
+        return False
+    return any(marker in text for marker in POLICY_BLOCK_MARKERS)
+
+
 def _iter_candidate_texts(gemini_response: Dict[str, Any]) -> List[str]:
     """从 Gemini 响应中提取所有候选的非思考文本（已展开 response 包装）"""
     texts: List[str] = []
